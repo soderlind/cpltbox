@@ -122,7 +122,7 @@ Use `prdText` when the PRD is small enough to send inline with the request:
 }
 ```
 
-Use `prdPath` when the PRD is already committed in the repository:
+Use `prdPath` when the PRD is already committed in the repository. For a complete example, see [docs/prd.md](prd.md).
 
 ```json
 {
@@ -259,6 +259,18 @@ curl -X POST https://cpltbox.<your-workers-subdomain>.workers.dev/ \
     "repo": "https://github.com/owner/repo",
     "task": "Implement the onboarding flow",
     "prdText": "Users should complete setup in under five minutes."
+  }'
+```
+
+For a more complex production workflow, adapt [docs/prd-github-issue-pr-loop.md](prd-github-issue-pr-loop.md). It describes a GitHub issue and pull request loop that keeps working through implementation, review feedback, and CI until the job is done or blocked.
+
+```bash
+curl -N -X POST https://cpltbox.<your-workers-subdomain>.workers.dev/stream \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "repo": "https://github.com/owner/repo",
+    "task": "Resolve GitHub issue #123. Open or update a pull request, address review feedback, fix failing checks, and stop only when the job is done or blocked.",
+    "prdPath": "docs/prd-github-issue-pr-loop.md"
   }'
 ```
 
