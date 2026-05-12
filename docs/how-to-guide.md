@@ -1,5 +1,9 @@
 # How-To Guide: Running Copilot CLI in Cloudflare Sandbox
 
+cpltbox is useful when you want Copilot CLI to work on repositories through a controlled HTTP interface instead of from a developer laptop or long-lived server. A Worker receives a repository URL and task, starts the work inside an isolated Cloudflare Sandbox, and returns the agent logs plus the resulting `git diff`.
+
+This gives you a repeatable way to run coding tasks against real repositories while keeping secrets out of the image, limiting network access, and making each result reviewable before anything is merged. It is a good fit for automated documentation updates, issue-driven fixes, PRD-driven implementation work, CI repair attempts, and longer workflows where streaming output helps you monitor progress.
+
 This guide walks through cpltbox in three levels:
 
 - 101: run it locally and send a basic task.
