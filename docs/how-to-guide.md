@@ -1,224 +1,62 @@
-# How-To Guide: Running Copilot CLI in Cloudflare Sandbox
+# How-To Guide
 
-cpltbox is useful when you want Copilot CLI to work on repositories through a controlled HTTP interface instead of from a developer laptop or long-lived server. A Worker receives a repository URL and task, starts the work inside an isolated Cloudflare Sandbox, and returns the agent logs plus the resulting `git diff`.
+This guide covers local development, customization, and production deployment.
 
-This gives you a repeatable way to run coding tasks against real repositories while keeping secrets out of the image, limiting network access, and making each result reviewable before anything is merged. It is a good fit for automated documentation updates, issue-driven fixes, PRD-driven implementation work, CI repair attempts, and longer workflows where streaming output helps you monitor progress.
+---
 
-This guide walks through cpltbox in three levels:
-
-- 101: run it locally and send a basic task.
-- 201: customize requests, models, streaming, and validation.
-- 301: prepare it for deployment and operational use.
-
-## 101: Run Your First Sandbox Task
-
-Use this level when you want to prove the Worker, sandbox image, and Copilot CLI flow work together.
+## Local Development
 
 ### Prerequisites
 
-- Node.js and npm installed.
-- Docker running locally.
-- A Cloudflare account with Workers Sandbox support.
-- A GitHub token for an account with Copilot access.
+| Requirement | Notes |
+|-------------|-------|
+| Node.js + npm | Any recent LTS version |
+| Docker | Must be running for sandbox builds |
+| Cloudflare account | Workers Sandbox support required |
+| GitHub token | Fine-grained PAT with `Copilot Requests` permission; add repo read for private repos |
 
-For a fine-grained GitHub token, enable the `Copilot Requests` permission. Private repositories also need repository read access.
-
-### Install Dependencies
+### Setup
 
 ```bash
 npm install
-```
-
-### Configure Local Secrets
-
-```bash
 cp .dev.vars.example .dev.vars
 ```
 
-Edit `.dev.vars` and set `GH_TOKEN`:
+Edit `.dev.vars`:
 
-```bash
-GH_TOKEN=github_pat_with_copilot_requests_permission
+```
+GH_TOKEN=github_pat_...
 ```
 
-Do not put this token in the Dockerfile, source files, or README examples that might be committed.
+Never commit this token.
 
-### Start the Worker
+### Run Locally
 
 ```bash
 npm run dev
 ```
 
-The first run builds the sandbox image from `Dockerfile`. The image extends `docker.io/cloudflare/sandbox:0.7.20` and installs `@github/copilot` globally.
+First run builds the sandbox image from `Dockerfile` (extends `cloudflare/sandbox:0.7.20`, installs `@github/copilot`).
 
-### Send a Batch Request
+### Send a Request
 
-Use a small repository first so checkout and diff output are easy to inspect.
+**Batch mode** — wait for completion:
 
 ```bash
 curl -X POST http://localhost:8787/ \
   -H 'Content-Type: application/json' \
-  -d '{
-    "repo": "https://github.com/owner/repo",
-    "task": "Fix the typo in README.md"
-  }'
+  -d '{"repo": "https://github.com/owner/repo", "task": "Fix the typo in README.md"}'
 ```
 
-A successful response includes:
-
-- `success`: whether the Copilot CLI command succeeded.
-- `exitCode`: command exit code.
-- `logs`: command output.
-- `stderr`: stderr from Copilot CLI.
-- `diff`: local `git diff` after Copilot runs.
-
-### Verify the Codebase
-
-```bash
-npm run types
-npm test
-npm run test:acceptance
-npm run typecheck
-```
-
-## 201: Customize the Worker Flow
-
-Use this level when the basic request works and you want to shape how cpltbox runs tasks.
-
-### Use Streaming Output
-
-The `/stream` route returns `text/event-stream` output from `sandbox.execStream`.
+**Streaming mode** — watch progress:
 
 ```bash
 curl -N -X POST http://localhost:8787/stream \
   -H 'Content-Type: application/json' \
-  -d '{
-    "repo": "https://github.com/owner/repo",
-    "task": "Run the tests and fix one failing assertion"
-  }'
+  -d '{"repo": "https://github.com/owner/repo", "task": "Run the tests and fix one failing assertion"}'
 ```
 
-Use streaming for longer tasks where watching progress is more useful than waiting for one final JSON response.
-
-### Select a Model
-
-Pass `model` in the request body:
-
-```json
-{
-  "repo": "https://github.com/owner/repo",
-  "task": "Summarize the project structure",
-  "model": "gpt-5.2"
-}
-```
-
-The Worker validates model names with a conservative character allowlist before adding `--model` to the Copilot command.
-
-### Add PRD Context
-
-Use `prdText` when the PRD is small enough to send inline with the request:
-
-```json
-{
-  "repo": "https://github.com/owner/repo",
-  "task": "Implement the onboarding flow",
-  "prdText": "Users should complete setup in under five minutes. The first screen must collect workspace name and role."
-}
-```
-
-Use `prdPath` when the PRD is already committed in the repository. For a complete example, see [docs/prd.md](prd.md).
-
-```json
-{
-  "repo": "https://github.com/owner/repo",
-  "task": "Implement the dashboard described in the PRD",
-  "prdPath": "docs/prd.md"
-}
-```
-
-You can pass both fields. The Worker keeps `task` as the primary instruction and appends a PRD context section before invoking Copilot.
-
-### Understand Request Validation
-
-The Worker accepts:
-
-- `repo`: an `https://github.com/owner/repo` URL.
-- `task`: a non-empty string up to 8000 characters.
-- `model`: an optional string containing letters, numbers, underscores, periods, colons, and hyphens.
-- `prdText`: optional inline PRD text up to 50000 characters.
-- `prdPath`: an optional repo-relative path up to 240 characters, using forward slashes and simple path segments.
-
-Invalid requests return a `400` JSON response with an error message.
-
-PRD content is treated as untrusted input. Do not put tokens, private keys, or unrelated confidential material in `prdText`.
-
-### Understand Sandbox Reuse
-
-The Worker derives a stable sandbox ID from the normalized repository URL. Requests for the same repository use the same sandbox identity, while each run removes and reclones the target directory before invoking Copilot.
-
-This keeps the execution path predictable:
-
-1. Normalize request input.
-2. Get the sandbox by stable repository ID.
-3. Clone the repository with the GitHub token passed as command env.
-4. Run Copilot CLI in non-interactive mode.
-5. Return logs and diff output.
-
-### Adjust Network Allowlisting
-
-The sandbox disables broad internet access and allowlists GitHub/Copilot hosts through `COPILOT_ALLOWED_HOSTS`.
-
-If Copilot adds or changes endpoints, update the allowlist in `src/copilot.ts`, then rerun:
-
-```bash
-npm test
-npm run typecheck
-```
-
-## 301: Deploy and Operate Safely
-
-Use this level when local behavior is verified and you are ready to deploy or run cpltbox against real repositories.
-
-### Deploy the Worker
-
-```bash
-npx wrangler deploy
-```
-
-Set the production secret separately:
-
-```bash
-npx wrangler secret put GH_TOKEN
-```
-
-After first deployment, container provisioning can take a few minutes:
-
-```bash
-npx wrangler containers list
-```
-
-Wrangler prints the deployed Worker URL after a successful deploy. It usually looks like this:
-
-```text
-https://cpltbox.<your-workers-subdomain>.workers.dev
-```
-
-Callers do not send `GH_TOKEN`. The Worker reads the Cloudflare secret and passes it to sandbox commands.
-
-### Use the Deployed Worker
-
-Send a batch request to the deployed `/` route:
-
-```bash
-curl -X POST https://cpltbox.<your-workers-subdomain>.workers.dev/ \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "repo": "https://github.com/owner/repo",
-    "task": "Fix the typo in README.md"
-  }'
-```
-
-The response has the same shape as local development:
+### Response Shape
 
 ```json
 {
@@ -230,92 +68,153 @@ The response has the same shape as local development:
 }
 ```
 
-Use `/stream` when you want live output from a longer task:
+### Verify
 
 ```bash
-curl -N -X POST https://cpltbox.<your-workers-subdomain>.workers.dev/stream \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "repo": "https://github.com/owner/repo",
-    "task": "Run the test suite and fix one failing assertion"
-  }'
+npm test && npm run typecheck
 ```
 
-Use the same optional fields in production that you used locally. For example, pass a model and a repo-relative PRD path:
+---
+
+## Request Options
+
+### Required Fields
+
+| Field  | Description |
+|--------|-------------|
+| `repo` | GitHub repository URL: `https://github.com/owner/repo` |
+| `task` | What to do (max 8000 chars) |
+
+### Optional Fields
+
+| Field     | Description |
+|-----------|-------------|
+| `model`   | Copilot model identifier (letters, numbers, `_.-:`) |
+| `prdText` | Inline PRD context (max 50000 chars) |
+| `prdPath` | Repo-relative path to a PRD file (max 240 chars) |
+
+### Examples
+
+**With model:**
+
+```json
+{"repo": "https://github.com/owner/repo", "task": "Summarize the structure", "model": "gpt-5.2"}
+```
+
+**With inline PRD:**
+
+```json
+{"repo": "https://github.com/owner/repo", "task": "Implement the onboarding flow", "prdText": "Users complete setup in under five minutes."}
+```
+
+**With PRD file:** (see [prd.md](prd.md) for a simple example)
+
+```json
+{"repo": "https://github.com/owner/repo", "task": "Implement the dashboard", "prdPath": "docs/prd.md"}
+```
+
+You can combine `prdText` and `prdPath`. The Worker appends PRD context to the task before invoking Copilot.
+
+PRD content is untrusted input — never include tokens or secrets.
+
+---
+
+## How It Works
+
+1. Validate and normalize request input.
+2. Derive a stable sandbox ID from the repository URL.
+3. Clone the repository (token passed as command env, not baked into image).
+4. Run `copilot -p ... --allow-all` in non-interactive mode.
+5. Capture logs, stderr, and `git diff`.
+6. Return JSON or stream output.
+
+### Sandbox Reuse
+
+Requests for the same repository reuse the same sandbox identity. Each run removes and reclones the target directory, keeping execution predictable.
+
+### Network Allowlisting
+
+The sandbox disables broad internet and allowlists GitHub/Copilot hosts via `COPILOT_ALLOWED_HOSTS`. If Copilot adds endpoints, update `src/copilot.ts` and rerun tests.
+
+---
+
+## Deployment
+
+### Deploy
 
 ```bash
-curl -X POST https://cpltbox.<your-workers-subdomain>.workers.dev/ \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "repo": "https://github.com/owner/repo",
-    "task": "Implement the dashboard described in the PRD",
-    "model": "gpt-5.2",
-    "prdPath": "docs/prd.md"
-  }'
+npx wrangler deploy
+npx wrangler secret put GH_TOKEN
 ```
 
-Or pass inline PRD text:
+First deploy provisions the container (may take a few minutes):
 
 ```bash
-curl -X POST https://cpltbox.<your-workers-subdomain>.workers.dev/ \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "repo": "https://github.com/owner/repo",
-    "task": "Implement the onboarding flow",
-    "prdText": "Users should complete setup in under five minutes."
-  }'
+npx wrangler containers list
 ```
 
-For a more complex production workflow, adapt [docs/prd-github-issue-pr-loop.md](prd-github-issue-pr-loop.md). It describes a GitHub issue and pull request loop that keeps working through implementation, review feedback, and CI until the job is done or blocked.
+Deployed URL: `https://cpltbox.<subdomain>.workers.dev`
 
-```bash
-curl -N -X POST https://cpltbox.<your-workers-subdomain>.workers.dev/stream \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "repo": "https://github.com/owner/repo",
-    "task": "Resolve GitHub issue #123. Open or update a pull request, address review feedback, fix failing checks, and stop only when the job is done or blocked.",
-    "prdPath": "docs/prd-github-issue-pr-loop.md"
-  }'
-```
-
-### Run a Dry-Run Before Deployment
-
-Use Wrangler dry-run to confirm the Worker bundle and sandbox image build:
+### Dry Run
 
 ```bash
 npx wrangler deploy --dry-run
 ```
 
-This should report the Worker upload size, build the Docker image, and exit without deploying.
+Builds the image and bundles without deploying.
 
-### Production Checklist
+### Production Requests
 
-Before using the service with valuable repositories:
-
-- Use a GitHub token with the narrowest permissions that still supports Copilot and repository checkout.
-- Keep `GH_TOKEN` in Cloudflare secrets, not source control.
-- Run both `/` and `/stream` locally against a small public repository.
-- Review the generated diff before applying changes outside the sandbox.
-- Monitor checkout failures for missing repository permissions.
-- Monitor sandbox network failures for changed GitHub or Copilot hostnames.
-- Keep `@cloudflare/sandbox` and the Docker base image on the same version.
-
-### Troubleshoot Common Failures
-
-`GH_TOKEN is not configured` means the Worker did not receive the secret. Check `.dev.vars` locally or `wrangler secret put GH_TOKEN` in production.
-
-`repo must be an https://github.com URL` means the request body did not pass repository validation. Use the repository homepage URL, not an issue, pull request, branch, or file URL.
-
-A `checkout` stage failure usually means the repository does not exist, is private without token access, or the token is invalid.
-
-A Copilot CLI failure with an empty diff means checkout worked but the task failed or Copilot chose not to edit files. Inspect `logs` and `stderr` from the response.
-
-### Extend the Acceptance Tests
-
-The acceptance suite in `src/index.acceptance.test.ts` mocks the Cloudflare sandbox boundary and exercises real Worker request handling. Add tests there when changing HTTP behavior, response shape, route handling, or command orchestration.
-
-Run it directly with:
+Same as local — just change the URL:
 
 ```bash
-npm run test:acceptance
+curl -X POST https://cpltbox.<subdomain>.workers.dev/ \
+  -H 'Content-Type: application/json' \
+  -d '{"repo": "https://github.com/owner/repo", "task": "Fix the typo in README.md"}'
 ```
+
+For complex workflows, use streaming with a detailed PRD. See [prd-github-issue-pr-loop.md](prd-github-issue-pr-loop.md) for an issue-to-PR completion loop example:
+
+```bash
+curl -N -X POST https://cpltbox.<subdomain>.workers.dev/stream \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "repo": "https://github.com/owner/repo",
+    "task": "Resolve issue #123, open a PR, respond to feedback, and continue until done.",
+    "prdPath": "docs/prd-github-issue-pr-loop.md"
+  }'
+```
+
+---
+
+## Production Checklist
+
+- [ ] Use a GitHub token with minimum required permissions.
+- [ ] Store `GH_TOKEN` in Cloudflare secrets, not source control.
+- [ ] Test both `/` and `/stream` locally before deploying.
+- [ ] Review generated diffs before applying changes.
+- [ ] Monitor for checkout failures (permissions) and network failures (changed hostnames).
+- [ ] Keep `@cloudflare/sandbox` and Docker base image versions aligned.
+
+---
+
+## Troubleshooting
+
+| Error | Cause | Fix |
+|-------|-------|-----|
+| `GH_TOKEN is not configured` | Missing secret | Set in `.dev.vars` (local) or `wrangler secret put` (prod) |
+| `repo must be an https://github.com URL` | Invalid URL format | Use repository homepage, not issue/PR/file URL |
+| Checkout failure | Repo doesn't exist or token lacks access | Verify repo exists and token has read permission |
+| Empty diff | Copilot ran but made no changes | Check `logs` and `stderr` for details |
+
+---
+
+## Testing
+
+```bash
+npm test                  # unit tests
+npm run test:acceptance   # Worker-level tests with mocked sandbox
+npm run typecheck         # TypeScript check
+```
+
+Add acceptance tests in `src/index.acceptance.test.ts` when changing routes, response shape, or command orchestration.

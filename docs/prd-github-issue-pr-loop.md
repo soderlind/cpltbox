@@ -1,59 +1,91 @@
-# Example PRD: GitHub Issue and PR Completion Loop
+# Example PRD: Issue-to-PR Loop
+
+A workflow PRD for resolving a GitHub issue through implementation, review, and CI until done.
+
+---
 
 ## Goal
 
-Build an automation workflow that takes a GitHub issue as the source of truth, opens or updates a pull request with the required code changes, responds to review feedback, and continues until the job is complete.
+Resolve a GitHub issue by opening a PR, responding to feedback, fixing CI, and continuing until the work is complete or blocked.
 
-## Problem
+## Workflow
 
-Long-running implementation tasks often span issue comments, pull request reviews, CI failures, and follow-up commits. A useful agent should keep the work organized around the original issue, avoid losing reviewer context, and stop only when the issue acceptance criteria and pull request checks are satisfied.
+```
+┌─────────────┐
+│ Read issue  │
+└──────┬──────┘
+       ▼
+┌─────────────┐
+│ Branch + PR │
+└──────┬──────┘
+       ▼
+┌─────────────┐     ┌──────────┐
+│ Implement   │────▶│ Run tests│
+└──────┬──────┘     └────┬─────┘
+       │                 │
+       ▼                 ▼
+┌─────────────┐     ┌──────────┐
+│ Push + wait │────▶│ Check CI │
+└──────┬──────┘     └────┬─────┘
+       │                 │
+       ▼                 ▼
+┌─────────────────────────────┐
+│ Review feedback? Fix + loop │
+└──────────────┬──────────────┘
+               ▼
+       ┌──────────────┐
+       │ Done/Blocked │
+       └──────────────┘
+```
 
-## Users
+## Requirements
 
-- Repository maintainers who want a repeatable implementation loop for well-scoped issues.
-- Reviewers who need each agent update to explain what changed and what still needs attention.
-- Developers who want the final pull request to preserve issue context, test evidence, and review history.
+### Before coding
 
-## Inputs
+- Read issue title, body, labels, and comments
+- Identify acceptance criteria (ask if unclear)
+- Check for existing PRs on the same issue
 
-- `repo`: GitHub repository URL.
-- `issueNumber`: GitHub issue number to resolve.
-- `baseBranch`: target branch for the pull request, defaulting to the repository default branch.
-- `workingBranch`: branch name for the agent changes.
-- `maxIterations`: maximum issue, PR, review, and CI loop attempts before stopping for human help.
-- `requiredChecks`: optional list of CI checks that must pass before completion.
+### Commits and PRs
 
-## Functional Requirements
+- Create a branch from the default branch
+- Make focused commits referencing the issue (`#123`)
+- Open a PR that links the issue and summarizes the approach
+- List tests run and flag risks in the PR description
 
-- Read the issue title, body, labels, linked pull requests, and comments before changing code.
-- Extract explicit acceptance criteria from the issue and identify missing or ambiguous requirements.
-- Create a working branch from the latest base branch when no suitable branch exists.
-- Reuse an existing open pull request for the same issue and branch when available.
-- Make focused commits that reference the issue number.
-- Open a pull request that links the issue, summarizes the approach, lists tests run, and calls out risks.
-- After opening or updating the pull request, inspect review comments, requested changes, and CI results.
-- Apply requested review fixes when they are in scope and technically safe.
-- Rerun relevant tests after each change and update the pull request summary when behavior changes.
-- Continue until all issue acceptance criteria are met, required checks pass, and no blocking review requests remain.
-- Stop and request human help when requirements conflict, secrets are needed, permissions are missing, CI is unavailable, or `maxIterations` is reached.
+### Review loop
 
-## Non-Functional Requirements
+- After each push, check review comments and CI results
+- Apply reviewer requests that are in scope and safe
+- Re-run tests after changes
+- Update PR description when behavior changes
 
-- Keep changes minimal and scoped to the issue.
-- Do not rewrite unrelated history or force-push over human commits.
-- Do not expose tokens, private keys, or secret values in logs, commits, comments, or pull request text.
-- Prefer repository test and lint commands already documented in `package.json`, README, or contributor docs.
-- Make every status update auditable by linking it back to the issue, pull request, commit, test run, or CI result that caused the decision.
+### Stop conditions
 
-## Completion Criteria
+| Condition | Action |
+|-----------|--------|
+| All acceptance criteria met, CI green, no blocking reviews | **Done** |
+| Requirements conflict or are ambiguous | Stop, post question |
+| Secrets or permissions needed | Stop, request help |
+| CI unavailable or flaky | Stop, note blocker |
+| Max iterations reached | Stop, summarize status |
 
-- The pull request is open and linked to the issue.
-- The pull request description includes a concise summary, tests run, and remaining risks.
-- All explicit issue acceptance criteria are satisfied or marked as intentionally out of scope with a reason.
-- Required checks pass or a human-readable blocker is posted.
-- Review comments requesting changes are resolved or answered with a clear reason they cannot be resolved automatically.
-- The final status clearly says whether the job is done, blocked, or needs human review.
+## Constraints
 
-## Example Agent Task
+- Keep changes minimal and scoped to the issue
+- Never force-push over human commits
+- Never expose tokens or secrets in logs, commits, or comments
+- Use test/lint commands already in the repo
 
-Resolve GitHub issue `#123`. Read the issue, create or update a pull request, respond to review feedback, fix failing checks, and continue until the pull request is ready for maintainer review or a blocker requires human input.
+## Done When
+
+- [ ] PR is open and linked to the issue
+- [ ] PR description has summary, tests, and risks
+- [ ] Acceptance criteria satisfied or explicitly out-of-scope
+- [ ] CI checks pass
+- [ ] Review comments resolved or answered
+- [ ] Final status is clear: done, blocked, or needs human review
+
+## Example Task
+
+> Resolve issue #123. Read the issue, open or update a PR, respond to review feedback, fix failing checks, and continue until the PR is ready or a blocker requires human input.

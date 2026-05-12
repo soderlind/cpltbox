@@ -1,24 +1,37 @@
-# Example PRD: Repository README Cleanup
+# Example PRD: README Improvement
+
+A simple PRD for documentation cleanup tasks.
+
+---
 
 ## Goal
 
-Improve the repository README so a new developer can understand what the project does, how to run it locally, and how to verify changes.
+Make the README useful for a new developer within 5 minutes of opening the repo.
 
-## User Story
+## Context
 
-As a developer evaluating this repository, I want the README to explain the project purpose, setup steps, and test commands so I can get productive quickly.
+The current README is missing setup steps and verification commands.
 
 ## Requirements
 
-- Add a short project summary near the top of the README.
-- Document install and local development commands.
-- Document test and typecheck commands.
-- Keep examples generic and avoid secrets or real tokens.
-- Preserve existing license and attribution sections.
+| Priority | Requirement |
+|----------|-------------|
+| Must | Add one-sentence project summary at the top |
+| Must | Document `npm install` and `npm run dev` |
+| Must | Document `npm test` and `npm run typecheck` |
+| Must | Keep examples generic — no real tokens or secrets |
+| Should | Preserve existing license and attribution sections |
+| Should | Keep the README under 100 lines |
 
-## Acceptance Criteria
+## Done When
 
-- A new contributor can run the documented setup commands successfully.
-- README examples do not include private credentials.
-- The documented verification commands match `package.json`.
-- The final diff only changes documentation files.
+- [ ] A new contributor can copy-paste the setup commands and run locally
+- [ ] No credentials appear in examples
+- [ ] Commands match what's in `package.json`
+- [ ] Only documentation files are changed
+
+## Out of Scope
+
+- Code changes
+- CI configuration
+- Adding new dependencies

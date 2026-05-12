@@ -1,26 +1,63 @@
 # cpltbox
 
-Run GitHub Copilot CLI inside a Cloudflare Sandbox from a Worker.
+Run GitHub Copilot CLI against any repository through a controlled HTTP interface.
 
-This project follows the same shape as Cloudflare's Sandbox SDK Claude Code example: a Worker accepts a GitHub repository URL and task, checks out the repository inside an isolated Linux sandbox, runs a headless coding agent, and returns logs plus the local `git diff`.
+A Cloudflare Worker receives a repository URL and task, checks out the code inside an isolated Linux sandbox, runs Copilot CLI in headless mode, and returns the agent logs plus the resulting `git diff`. This gives you a repeatable, API-driven way to run coding tasks while keeping secrets out of the image, limiting network access, and making each result reviewable before anything is merged.
 
-## How To Use
+## Quick Start
 
-See the [how-to guide](docs/how-to-guide.md) for setup, local development, request examples, streaming, deployment, verification, and troubleshooting.
+```bash
+npm install
+cp .dev.vars.example .dev.vars   # add your GH_TOKEN
+npm run dev
+```
 
-The guide is organized by level:
+Send a task:
 
-- 101: run the Worker locally and send a basic task.
-- 201: customize streaming, model selection, validation, and sandbox behavior.
-- 301: deploy and operate the service safely.
+```bash
+curl -X POST http://localhost:8787/ \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "repo": "https://github.com/owner/repo",
+    "task": "Fix the typo in README.md"
+  }'
+```
 
-## Security Model
+Response:
 
-- The GitHub token is never baked into the Docker image.
-- The Worker passes `GH_TOKEN` and `GITHUB_TOKEN` only as per-command environment variables.
-- The Copilot command uses non-interactive mode: `copilot -p ... --allow-all`.
-- The Worker validates GitHub repository URLs, bounds task length, and shell-quotes dynamic arguments.
-- The sandbox class disables broad internet and allowlists GitHub/Copilot hosts.
+```json
+{
+  "success": true,
+  "exitCode": 0,
+  "logs": "...",
+  "stderr": "",
+  "diff": "diff --git a/README.md b/README.md ..."
+}
+```
+
+Use `/stream` for live output on longer tasks.
+
+## Request Fields
+
+| Field     | Required | Description |
+|-----------|----------|-------------|
+| `repo`    | yes      | GitHub repository URL (`https://github.com/owner/repo`) |
+| `task`    | yes      | What to do (max 8000 chars) |
+| `model`   | no       | Copilot model identifier |
+| `prdText` | no       | Inline PRD context (max 50000 chars) |
+| `prdPath` | no       | Repo-relative path to a PRD file |
+
+## Documentation
+
+See the [how-to guide](docs/how-to-guide.md) for local development, streaming, model selection, PRD usage, deployment, and troubleshooting. Example PRD files are in `docs/`.
+
+## Security
+
+- GitHub token is never baked into the Docker image.
+- `GH_TOKEN` is passed only as per-command environment variables.
+- Copilot runs in non-interactive mode: `copilot -p ... --allow-all`.
+- Repository URLs, task length, and shell arguments are validated.
+- The sandbox disables broad internet and allowlists GitHub/Copilot hosts only.
 
 ## License
 
