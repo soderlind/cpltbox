@@ -28,4 +28,4 @@ MIT License. Copyright (c) 2026 Per Søderlind.
 
 ## AI Contribution Attribution
 
-Assisted-by: GitHub Copilot:GPT-5.4
+Assisted-by: GitHub Copilot:GPT-5.5
