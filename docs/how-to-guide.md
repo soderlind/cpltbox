@@ -1,6 +1,6 @@
 # How-To Guide: Running Copilot CLI in Cloudflare Sandbox
 
-This guide walks through cplbox in three levels:
+This guide walks through cpltbox in three levels:
 
 - 101: run it locally and send a basic task.
 - 201: customize requests, models, streaming, and validation.
@@ -79,7 +79,7 @@ npm run typecheck
 
 ## 201: Customize the Worker Flow
 
-Use this level when the basic request works and you want to shape how cplbox runs tasks.
+Use this level when the basic request works and you want to shape how cpltbox runs tasks.
 
 ### Use Streaming Output
 
@@ -173,7 +173,7 @@ npm run typecheck
 
 ## 301: Deploy and Operate Safely
 
-Use this level when local behavior is verified and you are ready to deploy or run cplbox against real repositories.
+Use this level when local behavior is verified and you are ready to deploy or run cpltbox against real repositories.
 
 ### Deploy the Worker
 
@@ -191,6 +191,75 @@ After first deployment, container provisioning can take a few minutes:
 
 ```bash
 npx wrangler containers list
+```
+
+Wrangler prints the deployed Worker URL after a successful deploy. It usually looks like this:
+
+```text
+https://cpltbox.<your-workers-subdomain>.workers.dev
+```
+
+Callers do not send `GH_TOKEN`. The Worker reads the Cloudflare secret and passes it to sandbox commands.
+
+### Use the Deployed Worker
+
+Send a batch request to the deployed `/` route:
+
+```bash
+curl -X POST https://cpltbox.<your-workers-subdomain>.workers.dev/ \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "repo": "https://github.com/owner/repo",
+    "task": "Fix the typo in README.md"
+  }'
+```
+
+The response has the same shape as local development:
+
+```json
+{
+  "success": true,
+  "exitCode": 0,
+  "logs": "...",
+  "stderr": "",
+  "diff": "diff --git ..."
+}
+```
+
+Use `/stream` when you want live output from a longer task:
+
+```bash
+curl -N -X POST https://cpltbox.<your-workers-subdomain>.workers.dev/stream \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "repo": "https://github.com/owner/repo",
+    "task": "Run the test suite and fix one failing assertion"
+  }'
+```
+
+Use the same optional fields in production that you used locally. For example, pass a model and a repo-relative PRD path:
+
+```bash
+curl -X POST https://cpltbox.<your-workers-subdomain>.workers.dev/ \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "repo": "https://github.com/owner/repo",
+    "task": "Implement the dashboard described in the PRD",
+    "model": "gpt-5.2",
+    "prdPath": "docs/prd.md"
+  }'
+```
+
+Or pass inline PRD text:
+
+```bash
+curl -X POST https://cpltbox.<your-workers-subdomain>.workers.dev/ \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "repo": "https://github.com/owner/repo",
+    "task": "Implement the onboarding flow",
+    "prdText": "Users should complete setup in under five minutes."
+  }'
 ```
 
 ### Run a Dry-Run Before Deployment

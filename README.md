@@ -1,4 +1,4 @@
-# cplbox
+# cpltbox
 
 Run GitHub Copilot CLI inside a Cloudflare Sandbox from a Worker.
 
