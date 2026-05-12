@@ -22,6 +22,10 @@ The guide is organized by level:
 - The Worker validates GitHub repository URLs, bounds task length, and shell-quotes dynamic arguments.
 - The sandbox class disables broad internet and allowlists GitHub/Copilot hosts.
 
+## License
+
+MIT License. Copyright (c) 2026 Per Søderlind.
+
 ## AI Contribution Attribution
 
 Assisted-by: GitHub Copilot:GPT-5.4
