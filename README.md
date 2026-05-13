@@ -4,6 +4,8 @@ Run GitHub Copilot CLI against any repository through a controlled HTTP interfac
 
 A Cloudflare Worker receives a repository URL and task, checks out the code inside an isolated Linux sandbox, runs Copilot CLI in headless mode, and returns the agent logs plus the resulting `git diff`. This gives you a repeatable, API-driven way to run coding tasks while keeping secrets out of the image, limiting network access, and making each result reviewable before anything is merged.
 
+Built on [Cloudflare's Workers Sandbox SDK](https://blog.cloudflare.com/dynamic-workers/) for running containerized workloads inside Workers.
+
 ## Quick Start
 
 ```bash
