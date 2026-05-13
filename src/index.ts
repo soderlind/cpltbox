@@ -13,13 +13,19 @@ import {
 
 interface Env {
   GH_TOKEN: string;
+  SANDBOX_ENABLE_INTERNET?: string;
   Sandbox: DurableObjectNamespace<Sandbox>;
 }
 
 export class Sandbox extends BaseSandbox<Env> {
   interceptHttps = true;
-  enableInternet = false;
   allowedHosts = COPILOT_ALLOWED_HOSTS;
+
+  constructor(ctx: DurableObjectState, env: Env) {
+    super(ctx as DurableObjectState<Record<string, never>>, env);
+    // Enable internet for local dev (DNS resolution), restrict in production
+    this.enableInternet = env.SANDBOX_ENABLE_INTERNET === "true";
+  }
 }
 
 const json = (body: unknown, init?: ResponseInit): Response =>

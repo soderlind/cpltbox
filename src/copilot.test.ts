@@ -131,7 +131,7 @@ describe("command helpers", () => {
 
   it("builds checkout command with token expansion and quoted dynamic values", () => {
     expect(buildCheckoutCommand(context)).toBe(
-      "rm -rf 'agents' && git -c http.https://github.com/.extraheader=\"AUTHORIZATION: bearer $GH_TOKEN\" clone --depth=1 'https://github.com/cloudflare/agents.git' 'agents'"
+      "rm -rf 'agents' && git clone --depth=1 \"https://x-access-token:$GH_TOKEN@github.com/cloudflare/agents.git\" 'agents'"
     );
   });
 

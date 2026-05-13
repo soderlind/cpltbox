@@ -1,1 +1,5 @@
 GH_TOKEN=github_pat_with_copilot_requests_permission
+
+# Enable internet in sandbox for local dev (required for DNS resolution)
+# Set to "true" for local development, omit or set "false" for production
+SANDBOX_ENABLE_INTERNET=true

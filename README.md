@@ -10,7 +10,7 @@ Built on [Cloudflare's Workers Sandbox SDK](https://blog.cloudflare.com/dynamic-
 
 ```bash
 npm install
-cp .dev.vars.example .dev.vars   # add your GH_TOKEN
+cp .dev.vars.example .dev.vars   # add GH_TOKEN and SANDBOX_ENABLE_INTERNET
 npm run dev
 ```
 

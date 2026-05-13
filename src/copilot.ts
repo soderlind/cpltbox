@@ -224,15 +224,16 @@ export function copilotEnv(env: CopilotEnvSource): Record<string, string> {
 }
 
 export function buildCheckoutCommand(context: RunContext): string {
+  // Build authenticated URL: https://github.com/... -> https://x-access-token:$GH_TOKEN@github.com/...
+  // The shell expands $GH_TOKEN from the passed environment
+  const authUrl = context.repo.replace("https://github.com/", "https://x-access-token:$GH_TOKEN@github.com/");
   return [
     `rm -rf ${shellQuote(context.targetDir)}`,
     "&&",
     "git",
-    "-c",
-    'http.https://github.com/.extraheader="AUTHORIZATION: bearer $GH_TOKEN"',
     "clone",
     "--depth=1",
-    shellQuote(context.repo),
+    `"${authUrl}"`,
     shellQuote(context.targetDir)
   ].join(" ");
 }
