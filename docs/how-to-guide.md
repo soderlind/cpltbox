@@ -62,6 +62,8 @@ curl -N -X POST http://localhost:8787/stream \
   -d '{"repo": "https://github.com/owner/repo", "task": "Run the tests and fix one failing assertion"}'
 ```
 
+**Alternative:** Use an [HTTP client](rest.md) like REST Client, Bruno, Postman, or HTTPie instead of curl.
+
 ### Response Shape
 
 ```json

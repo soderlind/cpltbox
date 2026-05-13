@@ -53,7 +53,7 @@ Use `/stream` for live output on longer tasks.
 
 See the [how-to guide](docs/how-to-guide.md) for local development, streaming, model selection, PRD usage, deployment, and troubleshooting. Example PRD files are in `docs/`.
 
-For quick testing, open [requests.http](requests.http) with the [REST Client](https://marketplace.visualstudio.com/items?itemName=humao.rest-client) VS Code extension and click "Send Request".
+For quick testing, see [HTTP clients](docs/rest.md) for options like REST Client, Bruno, Postman, or HTTPie. The [requests.http](requests.http) file has ready-to-use examples.
 
 ## Security
 
