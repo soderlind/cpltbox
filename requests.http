@@ -1,0 +1,63 @@
+# cpltbox API Examples
+# Use with VS Code REST Client extension (humao.rest-client)
+# Click "Send Request" above any request block
+
+@baseUrl = http://localhost:8787
+
+### Batch request — wait for completion
+POST {{baseUrl}}/
+Content-Type: application/json
+
+{
+  "repo": "https://github.com/owner/repo",
+  "task": "Fix the typo in README.md"
+}
+
+### Streaming request — live output
+POST {{baseUrl}}/stream
+Content-Type: application/json
+
+{
+  "repo": "https://github.com/owner/repo",
+  "task": "Run the tests and fix one failing assertion"
+}
+
+### With model selection
+POST {{baseUrl}}/
+Content-Type: application/json
+
+{
+  "repo": "https://github.com/owner/repo",
+  "task": "Summarize the project structure",
+  "model": "gpt-5.2"
+}
+
+### With inline PRD context
+POST {{baseUrl}}/
+Content-Type: application/json
+
+{
+  "repo": "https://github.com/owner/repo",
+  "task": "Implement the onboarding flow",
+  "prdText": "Users complete setup in under five minutes. First screen collects workspace name and role."
+}
+
+### With PRD file from repo
+POST {{baseUrl}}/
+Content-Type: application/json
+
+{
+  "repo": "https://github.com/owner/repo",
+  "task": "Implement the dashboard described in the PRD",
+  "prdPath": "docs/prd.md"
+}
+
+### Complex workflow with streaming
+POST {{baseUrl}}/stream
+Content-Type: application/json
+
+{
+  "repo": "https://github.com/owner/repo",
+  "task": "Resolve issue #123. Open or update a PR, respond to feedback, and continue until done.",
+  "prdPath": "docs/prd-github-issue-pr-loop.md"
+}
