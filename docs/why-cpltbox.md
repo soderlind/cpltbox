@@ -151,9 +151,9 @@ The default endpoint returns the whole result in one shot, which is what you wan
 
 ## Why PRDs are first-class
 
-`prdText` and `prdPath` let you attach product-requirements context to a task. This isn't decoration — it's the difference between "fix the typo" (small, single-shot) and "implement this feature according to this spec" (big, ambiguous, requires shared context).
+`prdText`, `prdPath`, and `skillPaths` let you attach product-requirements and workflow context to a task. This isn't decoration — it's the difference between "fix the typo" (small, single-shot) and "implement this feature according to this spec" (big, ambiguous, requires shared context).
 
-Inline PRDs (`prdText`) are good for ad-hoc context you don't want to commit. Path-based PRDs (`prdPath`) are good when the spec lives in the repo and changes alongside the code. Both make the agent's task substantially more grounded than "go figure it out."
+Inline PRDs (`prdText`) are good for ad-hoc context you don't want to commit. Path-based PRDs (`prdPath`) and skills (`skillPaths`) are good when the spec or workflow guidance lives in the repo and changes alongside the code. They make the agent's task substantially more grounded than "go figure it out."
 
 ---
 

@@ -8,11 +8,13 @@ import {
   copilotEnv,
   MAX_PRD_PATH_LENGTH,
   MAX_PRD_TEXT_LENGTH,
+  MAX_SKILL_PATHS,
   MAX_TASK_LENGTH,
   normalizeModel,
   normalizePrdPath,
   normalizePrdText,
   normalizeRepo,
+  normalizeSkillPaths,
   normalizeTask,
   shellQuote,
   stableSandboxId,
@@ -118,6 +120,32 @@ describe("normalizePrdPath", () => {
   });
 });
 
+describe("normalizeSkillPaths", () => {
+  it("normalizes optional repo-relative skill paths", () => {
+    expect(normalizeSkillPaths(undefined)).toBeUndefined();
+    expect(normalizeSkillPaths([])).toBeUndefined();
+    expect(normalizeSkillPaths([" .cpltbox/skills/wp-rest-api/SKILL.md "])).toEqual([
+      ".cpltbox/skills/wp-rest-api/SKILL.md"
+    ]);
+  });
+
+  it("rejects invalid skill paths", () => {
+    expect(() => normalizeSkillPaths("docs/skills/tdd/SKILL.md")).toThrow(
+      "skillPaths must be an array"
+    );
+    expect(() => normalizeSkillPaths(["../skills/tdd/SKILL.md"])).toThrow(
+      "skillPaths item must be a repo-relative file path"
+    );
+    expect(() => normalizeSkillPaths(["docs\\skills\\tdd\\SKILL.md"])).toThrow(
+      "skillPaths item must use forward slashes"
+    );
+    expect(() => normalizeSkillPaths([42])).toThrow("skillPaths item must be a string");
+    expect(() => normalizeSkillPaths(Array.from({ length: MAX_SKILL_PATHS + 1 }, () => "docs/skills/tdd/SKILL.md"))).toThrow(
+      "skillPaths must contain"
+    );
+  });
+});
+
 describe("command helpers", () => {
   it("shell-quotes single quotes safely", () => {
     expect(shellQuote("Bob's repo")).toBe("'Bob'\\''s repo'");
@@ -159,6 +187,20 @@ describe("command helpers", () => {
       [
         "Fix Bob's failing test",
         "PRD context:\nRepo-relative PRD path: docs/prd.md\nRead this file after checkout and use it as product requirements context.\n\nInline PRD:\nUsers need a guided setup flow."
+      ].join("\n\n")
+    );
+  });
+
+  it("builds prompts with repo skill paths", () => {
+    expect(
+      buildCopilotPrompt({
+        ...context,
+        skillPaths: [".cpltbox/skills/wp-rest-api/SKILL.md", "docs/skills/tdd/SKILL.md"]
+      })
+    ).toBe(
+      [
+        "Fix Bob's failing test",
+        "Skill context:\nRepo-relative skill paths:\n- .cpltbox/skills/wp-rest-api/SKILL.md\n- docs/skills/tdd/SKILL.md\nRead these files after checkout and follow their instructions when relevant to the task."
       ].join("\n\n")
     );
   });
@@ -206,7 +248,8 @@ describe("run context", () => {
         task: "Fix README",
         model: "gpt-5.2",
         prdText: "  README must explain setup.  ",
-        prdPath: " docs/prd.md "
+        prdPath: " docs/prd.md ",
+        skillPaths: [" .cpltbox/skills/tdd/SKILL.md "]
       })
     });
 
@@ -215,6 +258,7 @@ describe("run context", () => {
       task: "Fix README",
       prdText: "README must explain setup.",
       prdPath: "docs/prd.md",
+      skillPaths: [".cpltbox/skills/tdd/SKILL.md"],
       model: "gpt-5.2",
       sandboxId: await stableSandboxId("https://github.com/cloudflare/agents.git"),
       targetDir: "agents"

@@ -48,10 +48,11 @@ Use `/stream` for live output on longer tasks.
 | `model`   | no       | Copilot model identifier |
 | `prdText` | no       | Inline PRD context (max 50000 chars) |
 | `prdPath` | no       | Repo-relative path to a PRD file |
+| `skillPaths` | no    | Repo-relative skill files to read and follow |
 
 ## Documentation
 
-See the [how-to guide](docs/how-to-guide.md) for local development, streaming, model selection, PRD usage, deployment, and troubleshooting. Example PRD files are in `docs/`.
+See the [how-to guide](docs/how-to-guide.md) for local development, streaming, model selection, PRD and skill usage, deployment, and troubleshooting. Example PRD files are in `docs/`.
 
 Read [why cpltbox](docs/why-cpltbox.md) for design rationale, tradeoffs, and project goals.
 

@@ -52,6 +52,16 @@ Content-Type: application/json
   "prdPath": "docs/prd.md"
 }
 
+### With skill files from repo
+POST {{baseUrl}}/
+Content-Type: application/json
+
+{
+  "repo": "https://github.com/owner/repo",
+  "task": "Build the REST endpoint",
+  "skillPaths": [".cpltbox/skills/wp-rest-api/SKILL.md"]
+}
+
 ### Complex workflow with streaming
 POST {{baseUrl}}/stream
 Content-Type: application/json

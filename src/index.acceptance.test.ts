@@ -178,6 +178,32 @@ describe("Worker acceptance", () => {
     );
   });
 
+  it("passes skill paths into streaming Copilot prompts", async () => {
+    const stream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode("data: done\n\n"));
+        controller.close();
+      }
+    });
+    sandboxMocks.exec.mockResolvedValueOnce({ success: true, stdout: "checked out", stderr: "", exitCode: 0 });
+    sandboxMocks.execStream.mockResolvedValueOnce(stream);
+
+    const response = await worker.fetch(
+      post("/stream", {
+        repo: "https://github.com/cloudflare/agents",
+        task: "Implement the endpoint",
+        skillPaths: [".cpltbox/skills/wp-rest-api/SKILL.md"]
+      }),
+      env
+    );
+
+    expect(response.status).toBe(200);
+    expect(sandboxMocks.execStream.mock.calls[0][0]).toContain("Skill context:");
+    expect(sandboxMocks.execStream.mock.calls[0][0]).toContain(
+      ".cpltbox/skills/wp-rest-api/SKILL.md"
+    );
+  });
+
   it("rejects invalid PRD input before checkout", async () => {
     const response = await worker.fetch(
       post("/", {
@@ -191,6 +217,25 @@ describe("Worker acceptance", () => {
     await expect(response.json()).resolves.toEqual({
       success: false,
       error: "prdPath must be a repo-relative file path"
+    });
+    expect(response.status).toBe(400);
+    expect(sandboxMocks.getSandbox).not.toHaveBeenCalled();
+    expect(sandboxMocks.exec).not.toHaveBeenCalled();
+  });
+
+  it("rejects invalid skill paths before checkout", async () => {
+    const response = await worker.fetch(
+      post("/", {
+        repo: "https://github.com/cloudflare/agents",
+        task: "Fix README",
+        skillPaths: ["../skills/tdd/SKILL.md"]
+      }),
+      env
+    );
+
+    await expect(response.json()).resolves.toEqual({
+      success: false,
+      error: "skillPaths item must be a repo-relative file path"
     });
     expect(response.status).toBe(400);
     expect(sandboxMocks.getSandbox).not.toHaveBeenCalled();

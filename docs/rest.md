@@ -169,6 +169,7 @@ All clients send the same JSON body:
 | `model` | no | Copilot model identifier |
 | `prdText` | no | Inline PRD context (max 50000 chars) |
 | `prdPath` | no | Repo-relative path to PRD file |
+| `skillPaths` | no | Repo-relative skill files to read and follow |
 
 **Endpoints:**
 - `POST /` — batch mode, returns JSON when complete

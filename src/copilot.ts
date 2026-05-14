@@ -1,6 +1,7 @@
 export const MAX_TASK_LENGTH = 8000;
 export const MAX_PRD_TEXT_LENGTH = 50000;
 export const MAX_PRD_PATH_LENGTH = 240;
+export const MAX_SKILL_PATHS = 10;
 
 export const COPILOT_ALLOWED_HOSTS = [
   "github.com",
@@ -16,6 +17,7 @@ export interface TaskRequest {
   model?: unknown;
   prdText?: unknown;
   prdPath?: unknown;
+  skillPaths?: unknown;
 }
 
 export interface CommandResult {
@@ -30,6 +32,7 @@ export interface RunContext {
   task: string;
   prdText?: string;
   prdPath?: string;
+  skillPaths?: string[];
   model?: string;
   sandboxId: string;
   targetDir: string;
@@ -127,40 +130,65 @@ export function normalizePrdPath(input: unknown): string | undefined {
   if (input === undefined || input === null) {
     return undefined;
   }
+
+  return normalizeRepoRelativePath(input, "prdPath", MAX_PRD_PATH_LENGTH);
+}
+
+export function normalizeSkillPaths(input: unknown): string[] | undefined {
+  if (input === undefined || input === null) {
+    return undefined;
+  }
+  if (!Array.isArray(input)) {
+    throw new Error("skillPaths must be an array");
+  }
+  if (input.length === 0) {
+    return undefined;
+  }
+  if (input.length > MAX_SKILL_PATHS) {
+    throw new Error(`skillPaths must contain ${MAX_SKILL_PATHS} paths or fewer`);
+  }
+
+  return input.map((path) => normalizeRepoRelativePath(path, "skillPaths item", MAX_PRD_PATH_LENGTH));
+}
+
+function normalizeRepoRelativePath(input: unknown, fieldName: string, maxLength: number): string {
   if (typeof input !== "string") {
-    throw new Error("prdPath must be a string");
+    throw new Error(`${fieldName} must be a string`);
   }
 
   const prdPath = input.trim();
   if (!prdPath) {
-    throw new Error("prdPath must not be empty");
+    throw new Error(`${fieldName} must not be empty`);
   }
-  if (prdPath.length > MAX_PRD_PATH_LENGTH) {
-    throw new Error(`prdPath must be ${MAX_PRD_PATH_LENGTH} characters or fewer`);
+  if (prdPath.length > maxLength) {
+    throw new Error(`${fieldName} must be ${maxLength} characters or fewer`);
   }
   if (prdPath.startsWith("/") || prdPath.startsWith("\\")) {
-    throw new Error("prdPath must be repo-relative");
+    throw new Error(`${fieldName} must be repo-relative`);
   }
   if (prdPath.includes("\\")) {
-    throw new Error("prdPath must use forward slashes");
+    throw new Error(`${fieldName} must use forward slashes`);
   }
 
   const segments = prdPath.split("/");
   if (segments.some((segment) => !segment || segment === "." || segment === "..")) {
-    throw new Error("prdPath must be a repo-relative file path");
+    throw new Error(`${fieldName} must be a repo-relative file path`);
   }
   if (segments.some((segment) => !/^[a-zA-Z0-9_.-]+$/.test(segment))) {
-    throw new Error("prdPath contains unsupported characters");
+    throw new Error(`${fieldName} contains unsupported characters`);
   }
 
   return prdPath;
 }
 
-export function buildCopilotPrompt(context: Pick<RunContext, "task" | "prdText" | "prdPath">): string {
-  if (!context.prdText && !context.prdPath) {
+export function buildCopilotPrompt(
+  context: Pick<RunContext, "task" | "prdText" | "prdPath" | "skillPaths">
+): string {
+  if (!context.prdText && !context.prdPath && !context.skillPaths?.length) {
     return context.task;
   }
 
+  const contextSections: string[] = [];
   const prdSections: string[] = [];
   if (context.prdPath) {
     prdSections.push(
@@ -173,8 +201,22 @@ export function buildCopilotPrompt(context: Pick<RunContext, "task" | "prdText" 
   if (context.prdText) {
     prdSections.push(`Inline PRD:\n${context.prdText}`);
   }
+  if (prdSections.length > 0) {
+    contextSections.push(`PRD context:\n${prdSections.join("\n\n")}`);
+  }
 
-  return [context.task, `PRD context:\n${prdSections.join("\n\n")}`].join("\n\n");
+  if (context.skillPaths?.length) {
+    contextSections.push(
+      [
+        "Skill context:",
+        "Repo-relative skill paths:",
+        ...context.skillPaths.map((path) => `- ${path}`),
+        "Read these files after checkout and follow their instructions when relevant to the task."
+      ].join("\n")
+    );
+  }
+
+  return [context.task, ...contextSections].join("\n\n");
 }
 
 export async function buildRunContext(request: Request): Promise<RunContext> {
@@ -184,6 +226,7 @@ export async function buildRunContext(request: Request): Promise<RunContext> {
   const model = normalizeModel(body.model);
   const prdText = normalizePrdText(body.prdText);
   const prdPath = normalizePrdPath(body.prdPath);
+  const skillPaths = normalizeSkillPaths(body.skillPaths);
   const targetDir = repo.split("/").pop()?.replace(/\.git$/, "") ?? "repo";
   const sandboxId = await stableSandboxId(repo);
 
@@ -196,6 +239,9 @@ export async function buildRunContext(request: Request): Promise<RunContext> {
   }
   if (prdPath) {
     context.prdPath = prdPath;
+  }
+  if (skillPaths) {
+    context.skillPaths = skillPaths;
   }
 
   return context;

@@ -100,6 +100,7 @@ npm test && npm run typecheck
 | `model`   | Copilot model identifier (letters, numbers, `_.-:`) |
 | `prdText` | Inline PRD context (max 50000 chars) |
 | `prdPath` | Repo-relative path to a PRD file (max 240 chars) |
+| `skillPaths` | Repo-relative skill files to read and follow (max 10 paths, 240 chars each) |
 
 ### Examples
 
@@ -121,9 +122,15 @@ npm test && npm run typecheck
 {"repo": "https://github.com/owner/repo", "task": "Implement the dashboard", "prdPath": "docs/prd.md"}
 ```
 
-You can combine `prdText` and `prdPath`. The Worker appends PRD context to the task before invoking Copilot.
+**With repo skill files:**
 
-PRD content is untrusted input — never include tokens or secrets.
+```json
+{"repo": "https://github.com/owner/repo", "task": "Build the REST endpoint", "skillPaths": [".cpltbox/skills/wp-rest-api/SKILL.md"]}
+```
+
+You can combine `prdText`, `prdPath`, and `skillPaths`. The Worker appends PRD and skill path context to the task before invoking Copilot.
+
+PRD and skill content is untrusted input — never include tokens or secrets.
 
 ---
 
