@@ -55,6 +55,8 @@ See the [how-to guide](docs/how-to-guide.md) for local development, streaming, m
 
 Read [why cpltbox](docs/why-cpltbox.md) for design rationale, tradeoffs, and project goals.
 
+For shell helpers, see [scripts/READM.md](scripts/READM.md) in the `scripts/` folder (`cpltbox.sh` and `ralph.sh`).
+
 For quick testing, see [HTTP clients](docs/rest.md) for options like REST Client, Bruno, Postman, or HTTPie. The [requests.http](requests.http) file has ready-to-use examples.
 
 ## Security
