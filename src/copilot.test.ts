@@ -3,13 +3,16 @@ import {
   buildCheckoutCommand,
   buildCopilotCommand,
   buildCopilotPrompt,
+  buildMcpConfigCommand,
   buildRunContext,
   commandOutput,
   copilotEnv,
+  MAX_MCP_SERVERS,
   MAX_PRD_PATH_LENGTH,
   MAX_PRD_TEXT_LENGTH,
   MAX_SKILL_PATHS,
   MAX_TASK_LENGTH,
+  normalizeMcpConfig,
   normalizeModel,
   normalizePrdPath,
   normalizePrdText,
@@ -146,6 +149,106 @@ describe("normalizeSkillPaths", () => {
   });
 });
 
+describe("normalizeMcpConfig", () => {
+  it("returns undefined for missing or empty config", () => {
+    expect(normalizeMcpConfig(undefined)).toBeUndefined();
+    expect(normalizeMcpConfig(null)).toBeUndefined();
+    expect(normalizeMcpConfig({ mcpServers: {} })).toBeUndefined();
+  });
+
+  it("validates local/stdio server config", () => {
+    const config = normalizeMcpConfig({
+      mcpServers: {
+        playwright: {
+          type: "local",
+          command: "npx",
+          args: ["@playwright/mcp@latest"],
+          tools: "*"
+        }
+      }
+    });
+    expect(config).toEqual({
+      mcpServers: {
+        playwright: {
+          type: "local",
+          command: "npx",
+          args: ["@playwright/mcp@latest"],
+          tools: "*"
+        }
+      }
+    });
+  });
+
+  it("validates http/sse server config", () => {
+    const config = normalizeMcpConfig({
+      mcpServers: {
+        context7: {
+          type: "http",
+          url: "https://mcp.context7.com/mcp",
+          headers: { "API-KEY": "secret" },
+          tools: ["search", "fetch"]
+        }
+      }
+    });
+    expect(config).toEqual({
+      mcpServers: {
+        context7: {
+          type: "http",
+          url: "https://mcp.context7.com/mcp",
+          headers: { "API-KEY": "secret" },
+          tools: ["search", "fetch"]
+        }
+      }
+    });
+  });
+
+  it("rejects invalid mcpConfig structure", () => {
+    expect(() => normalizeMcpConfig("invalid")).toThrow("mcpConfig must be an object");
+    expect(() => normalizeMcpConfig([])).toThrow("mcpConfig must be an object");
+    expect(() => normalizeMcpConfig({ servers: {} })).toThrow("mcpConfig.mcpServers must be an object");
+  });
+
+  it("rejects invalid server names", () => {
+    expect(() => normalizeMcpConfig({
+      mcpServers: { "invalid name": { type: "local", command: "test" } }
+    })).toThrow("contains unsupported characters");
+  });
+
+  it("rejects invalid server type", () => {
+    expect(() => normalizeMcpConfig({
+      mcpServers: { test: { type: "invalid" } }
+    })).toThrow('must be "local", "stdio", "http", or "sse"');
+  });
+
+  it("requires command for local/stdio servers", () => {
+    expect(() => normalizeMcpConfig({
+      mcpServers: { test: { type: "stdio" } }
+    })).toThrow("command is required");
+  });
+
+  it("requires url for http/sse servers", () => {
+    expect(() => normalizeMcpConfig({
+      mcpServers: { test: { type: "http" } }
+    })).toThrow("url is required");
+  });
+
+  it("validates url format", () => {
+    expect(() => normalizeMcpConfig({
+      mcpServers: { test: { type: "http", url: "not-a-url" } }
+    })).toThrow("must be a valid URL");
+  });
+
+  it("rejects too many servers", () => {
+    const servers: Record<string, { type: string; command: string }> = {};
+    for (let i = 0; i <= MAX_MCP_SERVERS; i++) {
+      servers[`server${i}`] = { type: "local", command: "test" };
+    }
+    expect(() => normalizeMcpConfig({ mcpServers: servers })).toThrow(
+      `must contain ${MAX_MCP_SERVERS} servers or fewer`
+    );
+  });
+});
+
 describe("command helpers", () => {
   it("shell-quotes single quotes safely", () => {
     expect(shellQuote("Bob's repo")).toBe("'Bob'\\''s repo'");
@@ -173,6 +276,32 @@ describe("command helpers", () => {
     expect(buildCopilotCommand(context, true)).toBe(
       "copilot -C 'agents' -p 'Fix Bob'\\''s failing test' --allow-all --no-color --no-remote --no-auto-update --secret-env-vars=GH_TOKEN,GITHUB_TOKEN --stream on --model 'gpt-5.2'"
     );
+  });
+
+  it("builds MCP config command with heredoc", () => {
+    const contextWithMcp: RunContext = {
+      ...context,
+      mcpConfig: {
+        mcpServers: {
+          playwright: {
+            type: "local",
+            command: "npx",
+            args: ["@playwright/mcp@latest"],
+            tools: "*"
+          }
+        }
+      }
+    };
+    const command = buildMcpConfigCommand(contextWithMcp);
+    expect(command).toContain("mkdir -p ~/.copilot");
+    expect(command).toContain("cat > ~/.copilot/mcp-config.json");
+    expect(command).toContain("MCPCONFIG");
+    expect(command).toContain('"mcpServers"');
+    expect(command).toContain('"playwright"');
+  });
+
+  it("returns undefined for context without mcpConfig", () => {
+    expect(buildMcpConfigCommand(context)).toBeUndefined();
   });
 
   it("builds prompts with inline and repo PRD context", () => {

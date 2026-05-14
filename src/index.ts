@@ -2,6 +2,7 @@ import { Sandbox as BaseSandbox, getSandbox } from "@cloudflare/sandbox";
 import {
   buildCheckoutCommand,
   buildCopilotCommand,
+  buildMcpConfigCommand,
   buildRunContext,
   commandOutput,
   COPILOT_ALLOWED_HOSTS,
@@ -79,6 +80,18 @@ async function checkoutRepo(
   return sandbox.exec(buildCheckoutCommand(context), { env: copilotEnv(env), timeout: 120000 });
 }
 
+async function setupMcpConfig(
+  sandbox: Sandbox,
+  context: RunContext,
+  env: Env
+): Promise<CommandResult | undefined> {
+  const mcpCommand = buildMcpConfigCommand(context);
+  if (!mcpCommand) {
+    return undefined;
+  }
+  return sandbox.exec(mcpCommand, { env: copilotEnv(env), timeout: 10000 });
+}
+
 async function runBatch(request: Request, env: Env): Promise<Response> {
   const context = await buildRunContext(request);
   const sandbox = getSandbox(env.Sandbox, context.sandboxId);
@@ -98,6 +111,24 @@ async function runBatch(request: Request, env: Env): Promise<Response> {
       },
       { status: 502 }
     );
+  }
+
+  // Set up MCP config if provided
+  try {
+    const mcpResult = await setupMcpConfig(sandbox, context, env);
+    if (mcpResult && !mcpResult.success) {
+      return json(
+        {
+          success: false,
+          stage: "mcp-config",
+          exitCode: mcpResult.exitCode,
+          logs: commandOutput(mcpResult)
+        },
+        { status: 502 }
+      );
+    }
+  } catch (error) {
+    return commandExceptionResponse("mcp-config", error);
   }
 
   let copilot: CommandResult;
@@ -152,6 +183,24 @@ async function runStream(request: Request, env: Env): Promise<Response> {
       },
       { status: 502 }
     );
+  }
+
+  // Set up MCP config if provided
+  try {
+    const mcpResult = await setupMcpConfig(sandbox, context, env);
+    if (mcpResult && !mcpResult.success) {
+      return json(
+        {
+          success: false,
+          stage: "mcp-config",
+          exitCode: mcpResult.exitCode,
+          logs: commandOutput(mcpResult)
+        },
+        { status: 502 }
+      );
+    }
+  } catch (error) {
+    return commandExceptionResponse("mcp-config", error);
   }
 
   let stream: ReadableStream;

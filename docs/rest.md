@@ -185,6 +185,7 @@ All clients send the same JSON body:
 | `prdText` | no | Inline PRD context (max 50000 chars) |
 | `prdPath` | no | Repo-relative path to PRD file |
 | `skillPaths` | no | Repo-relative skill files to read and follow |
+| `mcpConfig` | no | MCP server configuration (see [how-to-guide](how-to-guide.md#mcp-servers)) |
 
 **Endpoints:**
 - `POST /` — batch mode, returns JSON when complete

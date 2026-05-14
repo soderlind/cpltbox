@@ -117,6 +117,7 @@ npm test && npm run typecheck
 | `prdText` | Inline PRD context (max 50000 chars) |
 | `prdPath` | Repo-relative path to a PRD file (max 240 chars) |
 | `skillPaths` | Repo-relative skill files to read and follow (max 10 paths, 240 chars each) |
+| `mcpConfig` | MCP server configuration object (max 10 servers, 32KB) |
 
 ### Examples
 
@@ -147,6 +148,75 @@ npm test && npm run typecheck
 You can combine `prdText`, `prdPath`, and `skillPaths`. The Worker appends PRD and skill path context to the task before invoking Copilot.
 
 PRD and skill content is untrusted input — never include tokens or secrets.
+
+---
+
+## MCP Servers
+
+Connect [Model Context Protocol (MCP)](https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/add-mcp-servers) servers to give Copilot access to external tools.
+
+### Server Types
+
+| Type | Description |
+|------|-------------|
+| `local` / `stdio` | Starts a local process (e.g., `npx @playwright/mcp@latest`) |
+| `http` / `sse` | Connects to a remote MCP server via URL |
+
+### Example: Local Server
+
+```json
+{
+  "repo": "https://github.com/owner/repo",
+  "task": "Test the login page using Playwright",
+  "mcpConfig": {
+    "mcpServers": {
+      "playwright": {
+        "type": "local",
+        "command": "npx",
+        "args": ["@playwright/mcp@latest"],
+        "tools": "*"
+      }
+    }
+  }
+}
+```
+
+### Example: Remote Server
+
+```json
+{
+  "repo": "https://github.com/owner/repo",
+  "task": "Search for documentation",
+  "mcpConfig": {
+    "mcpServers": {
+      "context7": {
+        "type": "http",
+        "url": "https://mcp.context7.com/mcp",
+        "headers": {"API-KEY": "your-api-key"},
+        "tools": "*"
+      }
+    }
+  }
+}
+```
+
+### Configuration Reference
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `type` | yes | `local`, `stdio`, `http`, or `sse` |
+| `command` | local/stdio | Command to start the server (e.g., `npx`) |
+| `args` | no | Arguments for the command |
+| `url` | http/sse | Remote server URL |
+| `headers` | no | HTTP headers for remote servers |
+| `env` | no | Environment variables (key-value object) |
+| `tools` | no | `"*"` for all tools or array of tool names |
+
+### Limitations
+
+- **Local servers** require the MCP package to be installed in the sandbox. Add packages to the Dockerfile if needed.
+- **Remote servers** work if the URL is reachable (check network allowlisting).
+- **Max 10 servers** per request, 32KB total config size.
 
 ---
 

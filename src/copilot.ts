@@ -2,6 +2,8 @@ export const MAX_TASK_LENGTH = 8000;
 export const MAX_PRD_TEXT_LENGTH = 50000;
 export const MAX_PRD_PATH_LENGTH = 240;
 export const MAX_SKILL_PATHS = 10;
+export const MAX_MCP_SERVERS = 10;
+export const MAX_MCP_CONFIG_SIZE = 32000;
 
 export const COPILOT_ALLOWED_HOSTS = [
   "github.com",
@@ -18,6 +20,7 @@ export interface TaskRequest {
   prdText?: unknown;
   prdPath?: unknown;
   skillPaths?: unknown;
+  mcpConfig?: unknown;
 }
 
 export interface CommandResult {
@@ -27,12 +30,27 @@ export interface CommandResult {
   exitCode?: number;
 }
 
+export interface McpServerConfig {
+  type: "local" | "stdio" | "http" | "sse";
+  command?: string;
+  args?: string[];
+  env?: Record<string, string>;
+  url?: string;
+  headers?: Record<string, string>;
+  tools?: string[] | "*";
+}
+
+export interface McpConfig {
+  mcpServers: Record<string, McpServerConfig>;
+}
+
 export interface RunContext {
   repo: string;
   task: string;
   prdText?: string;
   prdPath?: string;
   skillPaths?: string[];
+  mcpConfig?: McpConfig;
   model?: string;
   sandboxId: string;
   targetDir: string;
@@ -151,6 +169,109 @@ export function normalizeSkillPaths(input: unknown): string[] | undefined {
   return input.map((path) => normalizeRepoRelativePath(path, "skillPaths item", MAX_PRD_PATH_LENGTH));
 }
 
+export function normalizeMcpConfig(input: unknown): McpConfig | undefined {
+  if (input === undefined || input === null) {
+    return undefined;
+  }
+  if (typeof input !== "object" || Array.isArray(input)) {
+    throw new Error("mcpConfig must be an object");
+  }
+
+  const config = input as Record<string, unknown>;
+  if (!config.mcpServers || typeof config.mcpServers !== "object" || Array.isArray(config.mcpServers)) {
+    throw new Error("mcpConfig.mcpServers must be an object");
+  }
+
+  const servers = config.mcpServers as Record<string, unknown>;
+  const serverNames = Object.keys(servers);
+  if (serverNames.length === 0) {
+    return undefined;
+  }
+  if (serverNames.length > MAX_MCP_SERVERS) {
+    throw new Error(`mcpConfig.mcpServers must contain ${MAX_MCP_SERVERS} servers or fewer`);
+  }
+
+  const validatedServers: Record<string, McpServerConfig> = {};
+  for (const name of serverNames) {
+    if (!/^[a-zA-Z0-9_-]+$/.test(name)) {
+      throw new Error(`mcpConfig server name "${name}" contains unsupported characters`);
+    }
+
+    const server = servers[name];
+    if (typeof server !== "object" || server === null || Array.isArray(server)) {
+      throw new Error(`mcpConfig.mcpServers.${name} must be an object`);
+    }
+
+    const serverObj = server as Record<string, unknown>;
+    const type = serverObj.type;
+    if (!type || !["local", "stdio", "http", "sse"].includes(type as string)) {
+      throw new Error(`mcpConfig.mcpServers.${name}.type must be "local", "stdio", "http", or "sse"`);
+    }
+
+    const validated: McpServerConfig = { type: type as McpServerConfig["type"] };
+
+    if (type === "local" || type === "stdio") {
+      if (typeof serverObj.command !== "string" || !serverObj.command.trim()) {
+        throw new Error(`mcpConfig.mcpServers.${name}.command is required for ${type} servers`);
+      }
+      validated.command = serverObj.command.trim();
+
+      if (serverObj.args !== undefined) {
+        if (!Array.isArray(serverObj.args) || !serverObj.args.every((a) => typeof a === "string")) {
+          throw new Error(`mcpConfig.mcpServers.${name}.args must be an array of strings`);
+        }
+        validated.args = serverObj.args;
+      }
+    } else {
+      if (typeof serverObj.url !== "string" || !serverObj.url.trim()) {
+        throw new Error(`mcpConfig.mcpServers.${name}.url is required for ${type} servers`);
+      }
+      try {
+        new URL(serverObj.url);
+      } catch {
+        throw new Error(`mcpConfig.mcpServers.${name}.url must be a valid URL`);
+      }
+      validated.url = serverObj.url.trim();
+
+      if (serverObj.headers !== undefined) {
+        if (typeof serverObj.headers !== "object" || Array.isArray(serverObj.headers)) {
+          throw new Error(`mcpConfig.mcpServers.${name}.headers must be an object`);
+        }
+        validated.headers = serverObj.headers as Record<string, string>;
+      }
+    }
+
+    if (serverObj.env !== undefined) {
+      if (typeof serverObj.env !== "object" || Array.isArray(serverObj.env)) {
+        throw new Error(`mcpConfig.mcpServers.${name}.env must be an object`);
+      }
+      validated.env = serverObj.env as Record<string, string>;
+    }
+
+    if (serverObj.tools !== undefined) {
+      if (serverObj.tools === "*") {
+        validated.tools = "*";
+      } else if (Array.isArray(serverObj.tools) && serverObj.tools.every((t) => typeof t === "string")) {
+        validated.tools = serverObj.tools;
+      } else {
+        throw new Error(`mcpConfig.mcpServers.${name}.tools must be "*" or an array of strings`);
+      }
+    }
+
+    validatedServers[name] = validated;
+  }
+
+  const result: McpConfig = { mcpServers: validatedServers };
+
+  // Size check
+  const serialized = JSON.stringify(result);
+  if (serialized.length > MAX_MCP_CONFIG_SIZE) {
+    throw new Error(`mcpConfig must be ${MAX_MCP_CONFIG_SIZE} characters or fewer when serialized`);
+  }
+
+  return result;
+}
+
 function normalizeRepoRelativePath(input: unknown, fieldName: string, maxLength: number): string {
   if (typeof input !== "string") {
     throw new Error(`${fieldName} must be a string`);
@@ -227,6 +348,7 @@ export async function buildRunContext(request: Request): Promise<RunContext> {
   const prdText = normalizePrdText(body.prdText);
   const prdPath = normalizePrdPath(body.prdPath);
   const skillPaths = normalizeSkillPaths(body.skillPaths);
+  const mcpConfig = normalizeMcpConfig(body.mcpConfig);
   const targetDir = repo.split("/").pop()?.replace(/\.git$/, "") ?? "repo";
   const sandboxId = await stableSandboxId(repo);
 
@@ -242,6 +364,9 @@ export async function buildRunContext(request: Request): Promise<RunContext> {
   }
   if (skillPaths) {
     context.skillPaths = skillPaths;
+  }
+  if (mcpConfig) {
+    context.mcpConfig = mcpConfig;
   }
 
   return context;
@@ -308,6 +433,16 @@ export function buildCopilotCommand(context: RunContext, stream: boolean): strin
   }
 
   return args.join(" ");
+}
+
+export function buildMcpConfigCommand(context: RunContext): string | undefined {
+  if (!context.mcpConfig) {
+    return undefined;
+  }
+
+  const configJson = JSON.stringify(context.mcpConfig);
+  // Use heredoc to safely write JSON with special characters
+  return `mkdir -p ~/.copilot && cat > ~/.copilot/mcp-config.json << 'MCPCONFIG'\n${configJson}\nMCPCONFIG`;
 }
 
 function isGitHubPathSegment(value: string): boolean {

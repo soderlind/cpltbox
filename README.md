@@ -56,6 +56,7 @@ Use `/stream` for live output on longer tasks.
 | `prdText` | no       | Inline PRD context (max 50000 chars) |
 | `prdPath` | no       | Repo-relative path to a PRD file |
 | `skillPaths` | no    | Repo-relative skill files to read and follow |
+| `mcpConfig` | no     | MCP server configuration (see [docs](docs/how-to-guide.md#mcp-servers)) |
 
 ## Documentation
 
