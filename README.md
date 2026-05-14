@@ -53,6 +53,8 @@ Use `/stream` for live output on longer tasks.
 
 See the [how-to guide](docs/how-to-guide.md) for local development, streaming, model selection, PRD usage, deployment, and troubleshooting. Example PRD files are in `docs/`.
 
+Read [why cpltbox](docs/why-cpltbox.md) for design rationale, tradeoffs, and project goals.
+
 For quick testing, see [HTTP clients](docs/rest.md) for options like REST Client, Bruno, Postman, or HTTPie. The [requests.http](requests.http) file has ready-to-use examples.
 
 ## Security
