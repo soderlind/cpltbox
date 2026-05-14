@@ -11,7 +11,7 @@
     "test": "vitest run",
     "test:acceptance": "vitest run src/*.acceptance.test.ts",
     "test:watch": "vitest",
-    "types": "wrangler types --env-file .dev.vars.example",
+    "types": "wrangler types --env-file .env.example",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

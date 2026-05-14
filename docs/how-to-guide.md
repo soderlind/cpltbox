@@ -19,10 +19,10 @@ This guide covers local development, customization, and production deployment.
 
 ```bash
 npm install
-cp .dev.vars.example .dev.vars
+cp .env.example .env
 ```
 
-Edit `.dev.vars`:
+Edit `.env`:
 
 ```
 GH_TOKEN=github_pat_...
@@ -151,7 +151,7 @@ Requests for the same repository reuse the same sandbox identity. Each run remov
 
 The sandbox restricts network access to GitHub/Copilot hosts via `COPILOT_ALLOWED_HOSTS`.
 
-**Local development:** Set `SANDBOX_ENABLE_INTERNET=true` in `.dev.vars`. This is required because local Docker can't resolve DNS for allowlisted hosts without general internet access.
+**Local development:** Set `SANDBOX_ENABLE_INTERNET=true` in `.env`. This is required because local Docker can't resolve DNS for allowlisted hosts without general internet access.
 
 **Production:** Omit `SANDBOX_ENABLE_INTERNET` (defaults to `false`). Cloudflare's infrastructure handles DNS resolution for allowlisted hosts correctly.
 
@@ -223,9 +223,9 @@ curl -N -X POST https://cpltbox.<subdomain>.workers.dev/stream \
 
 | Error | Cause | Fix |
 |-------|-------|-----|
-| `GH_TOKEN is not configured` | Missing secret | Set in `.dev.vars` (local) or `wrangler secret put` (prod) |
+| `GH_TOKEN is not configured` | Missing secret | Set in `.env` (local) or `wrangler secret put` (prod) |
 | `repo must be an https://github.com URL` | Invalid URL format | Use repository homepage, not issue/PR/file URL |
-| `Could not resolve host: github.com` | DNS blocked in sandbox | Set `SANDBOX_ENABLE_INTERNET=true` in `.dev.vars` |
+| `Could not resolve host: github.com` | DNS blocked in sandbox | Set `SANDBOX_ENABLE_INTERNET=true` in `.env` |
 | Checkout failure | Repo doesn't exist or token lacks access | Verify repo exists and token has read permission |
 | Empty diff | Copilot ran but made no changes | Check `logs` and `stderr` for details |
 
