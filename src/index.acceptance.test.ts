@@ -127,6 +127,28 @@ describe("Worker acceptance", () => {
     expect(sandboxMocks.execStream).not.toHaveBeenCalled();
   });
 
+  it("returns timeout responses when batch Copilot execution times out", async () => {
+    sandboxMocks.exec
+      .mockResolvedValueOnce({ success: true, stdout: "checked out", stderr: "", exitCode: 0 })
+      .mockRejectedValueOnce(new Error("Failed to execute command 'copilot ...': Command timeout after 300000ms"));
+
+    const response = await worker.fetch(
+      post("/", {
+        repo: "https://github.com/cloudflare/agents",
+        task: "Fix README"
+      }),
+      env
+    );
+
+    await expect(response.json()).resolves.toEqual({
+      success: false,
+      stage: "copilot",
+      error: "Command timeout after 300000ms"
+    });
+    expect(response.status).toBe(504);
+    expect(sandboxMocks.exec).toHaveBeenCalledTimes(2);
+  });
+
   it("streams Copilot output for stream requests", async () => {
     const stream = new ReadableStream({
       start(controller) {
@@ -150,6 +172,28 @@ describe("Worker acceptance", () => {
     expect(response.headers.get("Content-Type")).toBe("text/event-stream");
     expect(sandboxMocks.execStream).toHaveBeenCalledTimes(1);
     expect(sandboxMocks.execStream.mock.calls[0][0]).toContain("--stream on");
+  });
+
+  it("returns timeout responses when streaming Copilot execution times out before opening", async () => {
+    sandboxMocks.exec.mockResolvedValueOnce({ success: true, stdout: "checked out", stderr: "", exitCode: 0 });
+    sandboxMocks.execStream.mockRejectedValueOnce(
+      new Error("Failed to execute command 'copilot ...': Command timeout after 300000ms")
+    );
+
+    const response = await worker.fetch(
+      post("/stream", {
+        repo: "https://github.com/cloudflare/agents",
+        task: "Fix README"
+      }),
+      env
+    );
+
+    await expect(response.json()).resolves.toEqual({
+      success: false,
+      stage: "copilot",
+      error: "Command timeout after 300000ms"
+    });
+    expect(response.status).toBe(504);
   });
 
   it("passes repo PRD paths into streaming Copilot prompts", async () => {

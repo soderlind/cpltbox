@@ -47,6 +47,30 @@ const text = (body: string, init?: ResponseInit): Response =>
     }
   });
 
+function commandExceptionResponse(stage: string, error: unknown): Response {
+  const message = error instanceof Error ? error.message : "command failed";
+  const timeout = message.match(/Command timeout after (\d+)ms/);
+  if (timeout) {
+    return json(
+      {
+        success: false,
+        stage,
+        error: `Command timeout after ${timeout[1]}ms`
+      },
+      { status: 504 }
+    );
+  }
+
+  return json(
+    {
+      success: false,
+      stage,
+      error: error instanceof Error ? error.name : "CommandError"
+    },
+    { status: 502 }
+  );
+}
+
 async function checkoutRepo(
   sandbox: Sandbox,
   context: RunContext,
@@ -58,7 +82,12 @@ async function checkoutRepo(
 async function runBatch(request: Request, env: Env): Promise<Response> {
   const context = await buildRunContext(request);
   const sandbox = getSandbox(env.Sandbox, context.sandboxId);
-  const checkout = await checkoutRepo(sandbox, context, env);
+  let checkout: CommandResult;
+  try {
+    checkout = await checkoutRepo(sandbox, context, env);
+  } catch (error) {
+    return commandExceptionResponse("checkout", error);
+  }
   if (!checkout.success) {
     return json(
       {
@@ -71,14 +100,25 @@ async function runBatch(request: Request, env: Env): Promise<Response> {
     );
   }
 
-  const copilot = await sandbox.exec(buildCopilotCommand(context, false), {
-    env: copilotEnv(env),
-    timeout: 300000
-  });
-  const diff = await sandbox.exec(`git -C ${shellQuote(context.targetDir)} diff -- .`, {
-    env: copilotEnv(env),
-    timeout: 30000
-  });
+  let copilot: CommandResult;
+  try {
+    copilot = await sandbox.exec(buildCopilotCommand(context, false), {
+      env: copilotEnv(env),
+      timeout: 300000
+    });
+  } catch (error) {
+    return commandExceptionResponse("copilot", error);
+  }
+
+  let diff: CommandResult;
+  try {
+    diff = await sandbox.exec(`git -C ${shellQuote(context.targetDir)} diff -- .`, {
+      env: copilotEnv(env),
+      timeout: 30000
+    });
+  } catch (error) {
+    return commandExceptionResponse("diff", error);
+  }
 
   return json(
     {
@@ -95,7 +135,12 @@ async function runBatch(request: Request, env: Env): Promise<Response> {
 async function runStream(request: Request, env: Env): Promise<Response> {
   const context = await buildRunContext(request);
   const sandbox = getSandbox(env.Sandbox, context.sandboxId);
-  const checkout = await checkoutRepo(sandbox, context, env);
+  let checkout: CommandResult;
+  try {
+    checkout = await checkoutRepo(sandbox, context, env);
+  } catch (error) {
+    return commandExceptionResponse("checkout", error);
+  }
   if (!checkout.success) {
     return json(
       {
@@ -108,10 +153,15 @@ async function runStream(request: Request, env: Env): Promise<Response> {
     );
   }
 
-  const stream = await sandbox.execStream(buildCopilotCommand(context, true), {
-    env: copilotEnv(env),
-    timeout: 300000
-  });
+  let stream: ReadableStream;
+  try {
+    stream = await sandbox.execStream(buildCopilotCommand(context, true), {
+      env: copilotEnv(env),
+      timeout: 300000
+    });
+  } catch (error) {
+    return commandExceptionResponse("copilot", error);
+  }
 
   return new Response(stream, {
     headers: {

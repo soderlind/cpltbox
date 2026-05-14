@@ -227,6 +227,7 @@ curl -N -X POST https://cpltbox.<subdomain>.workers.dev/stream \
 | `repo must be an https://github.com URL` | Invalid URL format | Use repository homepage, not issue/PR/file URL |
 | `Could not resolve host: github.com` | DNS blocked in sandbox | Set `SANDBOX_ENABLE_INTERNET=true` in `.env` |
 | Checkout failure | Repo doesn't exist or token lacks access | Verify repo exists and token has read permission |
+| `Command timeout after 300000ms` | Copilot did not finish within the sandbox command timeout | Retry with `/stream` for visibility, reduce task scope, or check Copilot/network logs |
 | Empty diff | Copilot ran but made no changes | Check `logs` and `stderr` for details |
 
 ---
