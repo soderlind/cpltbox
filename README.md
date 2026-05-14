@@ -37,6 +37,13 @@ Response:
 }
 ```
 
+Extract and view the diff:
+
+```bash
+curl -s ... | jq -r '.diff'           # view diff
+curl -s ... | jq -r '.diff' > fix.patch  # save to file, then: git apply fix.patch
+```
+
 Use `/stream` for live output on longer tasks.
 
 ## Request Fields

@@ -156,6 +156,21 @@ curl -N -X POST http://localhost:8787/stream \
   -d '{"repo": "https://github.com/owner/repo", "task": "Run tests and fix failures"}'
 ```
 
+**Extract the diff:**
+
+```bash
+curl -s -X POST http://localhost:8787/ \
+  -H 'Content-Type: application/json' \
+  -d '{"repo": "...", "task": "..."}' | jq -r '.diff'
+```
+
+**Save and apply:**
+
+```bash
+curl -s ... | jq -r '.diff' > fix.patch
+git apply fix.patch
+```
+
 ---
 
 ## Request Reference

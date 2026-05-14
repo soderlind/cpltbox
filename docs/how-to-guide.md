@@ -76,6 +76,22 @@ curl -N -X POST http://localhost:8787/stream \
 }
 ```
 
+### Working with the Diff
+
+The `diff` field contains escaped newlines. Use `jq` to extract it:
+
+```bash
+# View the diff
+curl -s -X POST http://localhost:8787/ \
+  -H 'Content-Type: application/json' \
+  -d '{"repo": "...", "task": "..."}' | jq -r '.diff'
+
+# Save to file and apply locally
+curl -s ... | jq -r '.diff' > fix.patch
+cd ~/Projects/your-repo
+git apply fix.patch
+```
+
 ### Verify
 
 ```bash
