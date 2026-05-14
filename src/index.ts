@@ -110,9 +110,10 @@ async function runBatch(request: Request, env: Env): Promise<Response> {
     return commandExceptionResponse("copilot", error);
   }
 
+  // Use origin/HEAD to capture both committed and uncommitted changes since checkout
   let diff: CommandResult;
   try {
-    diff = await sandbox.exec(`git -C ${shellQuote(context.targetDir)} diff -- .`, {
+    diff = await sandbox.exec(`git -C ${shellQuote(context.targetDir)} diff origin/HEAD -- .`, {
       env: copilotEnv(env),
       timeout: 30000
     });

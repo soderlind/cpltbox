@@ -67,7 +67,7 @@ describe("Worker acceptance", () => {
     expect(sandboxMocks.exec).toHaveBeenCalledTimes(3);
     expect(sandboxMocks.exec.mock.calls[0][0]).toContain("git");
     expect(sandboxMocks.exec.mock.calls[1][0]).toContain("copilot");
-    expect(sandboxMocks.exec.mock.calls[2][0]).toBe("git -C 'agents' diff -- .");
+    expect(sandboxMocks.exec.mock.calls[2][0]).toBe("git -C 'agents' diff origin/HEAD -- .");
     expect(sandboxMocks.exec.mock.calls[1][1]).toMatchObject({
       env: {
         GH_TOKEN: "test-token",
